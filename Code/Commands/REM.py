@@ -1,9 +1,10 @@
 import serial
 import time
 
+# Define the COM port and settings
 COM_PORT = "COM3"  # Replace with your actual COM port
 BAUD_RATE = 9600
-TIMEOUT = 2
+TIMEOUT = 2  # Timeout in seconds
 
 try:
     # Open the serial connection
@@ -14,42 +15,37 @@ try:
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE,
         timeout=TIMEOUT,
-        rtscts=False,
-        dsrdtr=False
+        rtscts=False,  # Disable RTS/CTS hardware flow control
+        dsrdtr=False   # Disable DSR/DTR flow control
     )
-
+    
     print(f"Connected to: {COM_PORT}")
-    time.sleep(2)  # Wait for the connection to establish
+    
+    # Allow the connection to establish
+    time.sleep(2)
 
-    # Clear any existing data in the buffers
+    # Clear the input and output buffers
     connection.reset_input_buffer()
     connection.reset_output_buffer()
     print("Input and output buffers cleared.")
+    
+    # Command to set the device in remote mode (SYST:REM)
+    command = "SYST:REM\r"  # Carriage return termination character
+    print(f"Sending command: {command}")
+    connection.write(command.encode())
 
-    # List of commands with different termination characters to try
-    commands = [
-        "SYST:REM\r",    # Carriage Return termination
-        "SYST:REM\n",    # Line Feed termination
-        "SYST:REM\r\n",  # Carriage Return + Line Feed termination
-    ]
+    # Allow some time for the command to be processed
+    time.sleep(1)
 
-    # Send each command and check for response
-    for command in commands:
-        print(f"Sending command: {command.encode()}")
-        connection.write(command.encode())
+    # Optionally check for any response
+    bytes_waiting = connection.in_waiting
+    print(f"Bytes waiting in buffer: {bytes_waiting}")
 
-        # Allow time for the command to be processed
-        time.sleep(1)
-
-        # Read and print any response
-        bytes_waiting = connection.in_waiting
-        print(f"Bytes waiting after command '{command}': {bytes_waiting}")
-
-        if bytes_waiting > 0:
-            response = connection.read(bytes_waiting).decode(errors='ignore').strip()
-            print(f"Response: {response}")
-        else:
-            print(f"No response for command: {command}")
+    if bytes_waiting > 0:
+        response = connection.read(bytes_waiting).decode(errors='ignore').strip()
+        print(f"Response: {response}")
+    else:
+        print("No response received from the device, but command should have been sent successfully.")
 
     # Close the connection
     connection.close()
