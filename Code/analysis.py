@@ -11,31 +11,45 @@ cleaned_data = {}
 for i in ['r', 'g', 'b', 'y', 'v', 'uv']:  
     cleaned_data[i] = data.dropna(subset=[f'current_{i} pA', f'unc_{i} pA'])
 
+## Plot the data for each color
+# for color, data_cleaned in cleaned_data.items():
+#     print(f"Processing data for color: {color}")
+    
+#     plt.errorbar(data_cleaned['voltage V'], data_cleaned[f'current_{color} pA'], yerr=data_cleaned[f'unc_{color} pA'], fmt='o', label=f'Data ({color.upper()})')
+#     plt.xlabel('Voltage (V)')
+#     plt.ylabel('Current (pA)')
+#     plt.legend()
+#     plt.show()
+
+# Define the sigmoid function
+def sigmoid(x, a, b, c, d):
+    return a / (1 + np.exp(-b * (x - c))) + d
+
+# Fit the sigmoid function to the data for each color
 for color, data_cleaned in cleaned_data.items():
     print(f"Processing data for color: {color}")
-    
+
+    popt, pcov = curve_fit(sigmoid, data_cleaned['voltage V'], data_cleaned[f'current_{color} pA'],
+        p0=[max(data_cleaned[f'current_{color} pA']), 1, 0, min(data_cleaned[f'current_{color} pA'])])
+    # print(f"Optimized parameters for {color} channel:", popt)
+    # print("Covariance of parameters:", pcov)
+
     plt.errorbar(data_cleaned['voltage V'], data_cleaned[f'current_{color} pA'], yerr=data_cleaned[f'unc_{color} pA'], fmt='o', label=f'Data ({color.upper()})')
+    plt.plot(data_cleaned['voltage V'], sigmoid(data_cleaned['voltage V'], *popt), label=f'Sigmoid Fit ({color.upper()})', color='red')
     plt.xlabel('Voltage (V)')
     plt.ylabel('Current (pA)')
     plt.legend()
     plt.show()
 
-def sigmoid(x, a, b, c, d):
-    return a / (1 + np.exp(-b * (x - c))) + d
+# Find the threshold voltage for each color
+
+threshold_voltages = {}
 
 for color, data_cleaned in cleaned_data.items():
     print(f"Processing data for color: {color}")
 
     popt, pcov = curve_fit(sigmoid, data_cleaned['voltage V'], data_cleaned[f'current_{color} pA'],
         p0=[max(data_cleaned[f'current_{color} pA']), 1, 0, min(data_cleaned[f'current_{color} pA'])])
-    print(f"Optimized parameters for {color} channel:", popt)
-    print("Covariance of parameters:", pcov)
 
-    plt.errorbar(data_cleaned['voltage V'], data_cleaned[f'current_{color} pA'], yerr=data_cleaned[f'unc_{color} pA'], fmt='o', label=f'Data ({color.upper()})')
-    plt.plot(data_cleaned['voltage V'], sigmoid(data_cleaned['voltage V'], *popt), label=f'Sigmoid Fit ({color.upper()})', color=color)
-    plt.xlabel('Voltage (V)')
-    plt.ylabel('Current (pA)')
-    plt.legend()
-    plt.show()
-
-# Find th
+    threshold_voltages[color] = popt[2]
+    print(f"Threshold voltage for {color} channel:", popt[2])
