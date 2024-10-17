@@ -4,16 +4,17 @@ import pandas as pd
 
 # Load data
 df = pd.read_csv('Data/QE.csv')
+
 print(df.head())
 
 # Define the wavelength of each color in meters
 wavelength = {
-    'r': 691.797e-9,
-    'g': 528.273e-9,
-    'b': 438.157e-9,
-    'y': 577.302e-9,
-    'v': 405.21e-9,
-    'uv': 368.11e-9
+    'r': 691.797e-9,   # Red
+    'v': 405.21e-9,    # Violet
+    'uv': 368.11e-9,   # Ultraviolet
+    'y': 577.302e-9,   # Yellow
+    'b': 438.157e-9,   # Blue
+    'g': 528.273e-9    # Green
 }
 
 # Speed of light (m/s)
@@ -24,24 +25,32 @@ frequency = {}
 for color, wave in wavelength.items():
     frequency[color] = c / wave
 
-# Define a function to calculate Quantum Efficiency (QE)
-def QE(data, color_freq):
-    return (data['current pA'] * 10**-12 * 6.63 * 10**-34 * color_freq) / (data['power muW'] * 10**-6 * 1.6 * 10**-19)
+print("Frequencies for each color:", frequency)
 
+# Planck constant (J*s)
+h = 6.63 * 10**-34
 
-# Initialize a dictionary to store the QE results for each color
-qe_results = {}
+# Initialize a list to store the QE values for each row
+qe_values = []
+frequencies = []
 
-# Calculate QE for each color
+# Loop through each row and calculate QE
+for idx, row in df.iterrows():
+    color = row['Unnamed: 0']  # Get the color of the current row from the first column
+    freq = frequency[color]  # Get the frequency corresponding to that color
+    current = row['current pA'] * 10**-12  # Convert current to Amperes (A)
+    power = row['power muW'] * 10**-6  # Convert power to Watts (W)
+    
+    # Calculate QE for the current row
+    qe = (current * h * freq) / (power * 1.6 * 10**-19)  # Calculate QE
+    
+    # Store the QE and corresponding frequency
+    qe_values.append(qe)
+    frequencies.append(freq)
 
-for color, freq in frequency.items():
-    qe_results[color] = QE(df, freq)
-
-# Plot the QE results against the frequency of each color
-
-plt.plot(list(frequency.values()), list(qe_results.values()), 'o')
+# Plot the QE results against the frequency of each row
+plt.plot(frequencies, qe_values, 'o')
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Quantum Efficiency (QE)')
+plt.title('Quantum Efficiency vs Frequency')
 plt.show()
-
-
-
-
