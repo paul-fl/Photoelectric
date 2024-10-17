@@ -1,12 +1,12 @@
 # validate_serial.py
-import serial2
+import serial
 
 COM_PORT = "COM5"  # Instrument port location
 TIMEOUT = 1
 CHECK_COMMAND = "*IDN?\n"  # Terminate with newline
 
 # Open connection
-serial_connection = serial2.Serial(
+serial_connection = serial.Serial(
     port=COM_PORT,
     timeout=TIMEOUT,
     write_timeout=TIMEOUT,
