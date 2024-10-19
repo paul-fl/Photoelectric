@@ -25,7 +25,6 @@ zero_crossing_voltages = {}
 
 # Fit the cubic spline to the data for each color
 for color, data_cleaned in cleaned_data.items():
-    print(f"Processing data for color: {color}")
 
     # Fit a cubic spline
     spline = CubicSpline(data_cleaned['voltage V'], data_cleaned[f'current_{color} pA'])
@@ -78,6 +77,20 @@ plt.ylabel('Zero Crossing Voltage (V)')
 plt.legend()
 plt.show()
 
+# Find the error in the zero crossing voltage
+# Define the error function
+
+def error_spline(x, y, yerr):
+    spline = CubicSpline(x, y)
+    return np.sum((spline(x) - y)**2 / yerr**2)
+
+# Calculate the error in the zero crossing voltage
+errors = {}
+for color, data_cleaned in cleaned_data.items():
+    errors[color] = error_spline(data_cleaned['voltage V'], data_cleaned[f'current_{color} pA'], data_cleaned[f'unc_{color} pA'])
+
+
+print(f"Errors in zero crossing voltage: {errors}")
 # plt.plot(list(frequency.values()), list(manual_stopping.values()), 'o', label='Manual Stopping Voltage')
 # plt.xlabel('Frequency (Hz)')
 # plt.ylabel('Manual Stopping Voltage (V)')
@@ -94,14 +107,14 @@ frequency_values = list(frequency.values())
 zero_crossing_voltages = list(zero_crossing_voltages.values())
 
 # Perform the curve fitting
-popt, pcov = curve_fit(linear, frequency_values, zero_crossing_voltages)
+popt, pcov = curve_fit(linear, frequency_values, zero_crossing_voltages )
 
 # Calculate the errors (square root of diagonal elements of covariance matrix)
 perr = np.sqrt(np.diag(pcov))
 
 # Plotting
 plt.plot(frequency_values, zero_crossing_voltages, 'o', label='Zero Crossing Voltage (Cubic Spline)')
-plt.plot(frequency_values, linear(np.array(frequency_values), *popt), label=f'Linear Fit: y={popt[0]:.4f}x + {popt[1]:.4f}')
+plt.plot(frequency_values, linear(np.array(frequency_values), *popt))
 plt.xlabel('Frequency (Hz)')
 plt.ylabel('Zero Crossing Voltage (V)')
 plt.legend()
@@ -116,3 +129,4 @@ print(f"Gradient of the linear fit: {gradient} V/Hz")
 h = gradient * 1.6e-19
 
 print(f"Plank's constant: {h} J.s")
+print(f"Error in Plank's constant: {perr[0] * 1.6e-19} J.s")

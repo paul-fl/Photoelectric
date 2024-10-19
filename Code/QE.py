@@ -25,7 +25,9 @@ frequency = {}
 for color, wave in wavelength.items():
     frequency[color] = c / wave
 
-print("Frequencies for each color:", frequency)
+# calculate the energy of 
+
+# print("Frequencies for each color:", frequency)
 
 # Planck constant (J*s)
 h = 6.63 * 10**-34
@@ -42,15 +44,16 @@ for idx, row in df.iterrows():
     power = row['power muW'] * 10**-6  # Convert power to Watts (W)
     
     # Calculate QE for the current row
-    qe = (current * h * freq) / (power * 1.6 * 10**-19)  # Calculate QE
-    
+    qe = (current * h * freq) / (power * 1.6E-19)  # Calculate QE
+    print(f"Quantum Efficiency for {color} channel: {qe}")
     # Store the QE and corresponding frequency
     qe_values.append(qe)
     frequencies.append(freq)
 
 # Plot the QE results against the frequency of each row
-plt.plot(frequencies, qe_values, 'o')
+plt.plot(frequencies, qe_values)
 plt.xlabel('Frequency (Hz)')
 plt.ylabel('Quantum Efficiency (QE)')
 plt.title('Quantum Efficiency vs Frequency')
 plt.show()
+
