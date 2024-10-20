@@ -8,6 +8,13 @@ from scipy.stats import norm  # Import norm to fit a Gaussian
 # Load the data (assuming CSV format)
 data = pd.read_csv('Data/Filters.csv')
 
+# Load the background data
+voltage_background, current_background, unc_background = np.loadtxt('Data/Background.csv', delimiter=',', skiprows=1, unpack=True)
+
+# Plot a linear fit to the background data
+popt, pcov = np.polyfit(voltage_background, current_background, 1, cov=True)
+
+
 # Use a for loop to get cleaned data for every colour
 cleaned_data = {}
 for i in ['r', 'g', 'b', 'y', 'v', 'uv']:  
@@ -27,6 +34,9 @@ zero_crossing_errors = {}
 n_iterations = 10000  # Number of bootstrap iterations
 
 for color, data_cleaned in cleaned_data.items():
+    # Remove the background current
+    data_cleaned[f'current_{color} pA'] -= np.polyval(popt, data_cleaned['voltage V'])
+
     # Fit a cubic spline to the original data
     spline = CubicSpline(data_cleaned['voltage V'], data_cleaned[f'current_{color} pA'])
     voltage_at_zero = find_zero_crossing_spline(spline)

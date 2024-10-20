@@ -77,20 +77,7 @@ plt.ylabel('Zero Crossing Voltage (V)')
 plt.legend()
 plt.show()
 
-# Find the error in the zero crossing voltage
-# Define the error function
 
-def error_spline(x, y, yerr):
-    spline = CubicSpline(x, y)
-    return np.sum((spline(x) - y)**2 / yerr**2)
-
-# Calculate the error in the zero crossing voltage
-errors = {}
-for color, data_cleaned in cleaned_data.items():
-    errors[color] = error_spline(data_cleaned['voltage V'], data_cleaned[f'current_{color} pA'], data_cleaned[f'unc_{color} pA'])
-
-
-print(f"Errors in zero crossing voltage: {errors}")
 # plt.plot(list(frequency.values()), list(manual_stopping.values()), 'o', label='Manual Stopping Voltage')
 # plt.xlabel('Frequency (Hz)')
 # plt.ylabel('Manual Stopping Voltage (V)')
