@@ -51,7 +51,7 @@ for idx, row in df.iterrows():
     frequencies.append(freq)
 
 # Plot the QE results against the frequency of each row
-plt.plot(frequencies, qe_values)
+plt.scatter(frequencies, qe_values)
 plt.xlabel('Frequency (Hz)')
 plt.ylabel('Quantum Efficiency (QE)')
 plt.title('Quantum Efficiency vs Frequency')
