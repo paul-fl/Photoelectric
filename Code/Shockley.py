@@ -17,8 +17,16 @@ wavelength = {
     'y': 577.302e-9
 }
 
+wavelength_error = {
+    'b': 8.599e-9,
+    'g': 9.816e-9,
+    'r': 10.547e-9,
+    'y': 8.902e-9
+}
+
 c = 3e8  
 frequency = {color: c / wave for color, wave in wavelength.items()}
+frequency_error = {color: c / wave**2 * wavelength_error[color] for color, wave in wavelength.items()}
 
 # Define the Shockley diode function
 def shockley_diode(x, A, B, C):
@@ -34,8 +42,12 @@ for color, data in data_dict.items():
     
     popt, pcov = curve_fit(shockley_diode, voltage, current, p0=[max(current), 1, 0])
     plt.errorbar(voltage, current, yerr=unc, fmt='x')
-    plt.title(f'{color} data')
+    plt.title(f'Shockley fit for {color} data')
     plt.plot(voltage, shockley_diode(voltage, *popt))
+    plt.xlabel('Voltage (V)')
+    plt.ylabel('Current (pA)')
+    plt.legend
+    
     plt.show()
 
     print(f"The value of A, B, C for {color} data is: {popt}")
@@ -63,18 +75,34 @@ def linear(x, a, b):
     return a * x + b
 
 frequency_values = list(frequency.values())
+frequency_errors_list = list(frequency_error.values())
 zero_crossing_voltages_list = list(zero_crossing_voltages.values())
 zero_crossing_errors_list = list(zero_crossing_errors.values())
 
-# Perform the curve fitting
-popt, pcov = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=list(zero_crossing_errors.values()))
+# Function to calculate effective sigma
+def calculate_effective_sigma(voltage_errors, frequency_errors, slope):
+    return np.sqrt(np.array(voltage_errors)**2 + (slope * np.array(frequency_errors))**2)
+
+# Perform an initial fit to estimate the slope
+popt_initial, _ = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=zero_crossing_errors_list)
+slope_initial = popt_initial[0]
+
+# Calculate effective sigma using the initial slope
+effective_sigma = calculate_effective_sigma(zero_crossing_errors_list, frequency_errors_list, slope_initial)
+
+# Perform the final fit using the effective sigma
+popt, pcov = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=effective_sigma)
+
+# Get the fit parameters and their errors
+slope, intercept = popt
+slope_error, intercept_error = np.sqrt(np.diag(pcov))
 
 # Convert frequency_values to NumPy array for plotting
 frequency_values_np = np.array(frequency_values)
 
 # Plot the zero crossing voltages against the frequency of each color
-plt.errorbar(frequency_values, zero_crossing_voltages_list, yerr=zero_crossing_errors_list, fmt='o', label='Data')
-plt.plot(frequency_values_np, linear(frequency_values_np, *popt), label='Linear Fit')
+plt.errorbar(frequency_values, zero_crossing_voltages_list, yerr=zero_crossing_errors_list, xerr=frequency_errors_list, fmt='o', label='Data')
+plt.plot(frequency_values_np, linear(frequency_values_np, *popt), label=f'Linear Fit (slope: {slope:.4e} ± {slope_error:.4e})')
 plt.xlabel('Frequency (Hz)')
 plt.ylabel('Zero Crossing Voltage (V)')
 plt.title('Zero Crossing Voltage vs Frequency')
@@ -82,9 +110,6 @@ plt.legend()
 plt.show()
 
 # Find the value of Planck's constant (h)
-slope = popt[0]
-slope_error = np.sqrt(pcov[0, 0])
-
 h = slope * 1.6e-19
 h_error = slope_error * 1.6e-19
 

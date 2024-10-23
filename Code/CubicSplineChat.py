@@ -14,7 +14,6 @@ voltage_background, current_background, unc_background = np.loadtxt('Data/Backgr
 # Plot a linear fit to the background data
 popt, pcov = np.polyfit(voltage_background, current_background, 1, cov=True)
 
-
 # Use a for loop to get cleaned data for every colour
 cleaned_data = {}
 for i in ['r', 'g', 'b', 'y', 'v', 'uv']:  
@@ -81,7 +80,7 @@ for color, data_cleaned in cleaned_data.items():
     plt.plot(x, p, 'k', linewidth=2, label=f'Gaussian Fit\nMean = {mean:.4f} V\nStd Dev = {std:.4f} V')
 
     # Plot details
-    plt.title(f'Gaussian Fit for Stopping Voltage ({color.upper()})')
+    plt.title(f'Gaussian Fit for Stopping Voltage ({color.upper()} N = {n_iterations})')
     plt.xlabel('Stopping Voltage (V)')
     plt.ylabel('Density')
     plt.legend()
@@ -97,11 +96,22 @@ wavelength = {
     'uv': 368.11e-9
 }
 
+wavelength_error = {
+    'r': 10.547e-9,
+    'g': 9.816e-9,
+    'b': 8.599e-9,
+    'y': 8.902e-9,
+    'v': 9.064e-9,
+    'uv': 10.101e-9
+}
+
 c = 3e8  # Speed of light (m/s)
 frequency = {color: c / wave for color, wave in wavelength.items()}
+frequency_error = {color: (c / wave**2) * wavelength_error[color] for color, wave in wavelength.items()}
 
 # Convert to lists for fitting
 frequency_values = list(frequency.values())
+frequency_errors_list = list(frequency_error.values())
 zero_crossing_voltages_list = list(zero_crossing_voltages.values())
 zero_crossing_errors_list = list(zero_crossing_errors.values())
 
@@ -111,17 +121,29 @@ def linear(x, a, b):
 
 zero_crossing_voltages_list = np.abs(zero_crossing_voltages_list)
 
-# Perform a weighted curve fitting using the error bars as weights (1 / sigma^2)
-popt, pcov = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=zero_crossing_errors_list, absolute_sigma=True)
+# Function to calculate effective sigma
+def calculate_effective_sigma(voltage_errors, frequency_errors, slope):
+    return np.sqrt(np.array(voltage_errors)**2 + (slope * np.array(frequency_errors))**2)
+
+# Perform an initial fit to estimate the slope
+popt_initial, _ = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=zero_crossing_errors_list)
+slope_initial = popt_initial[0]
+
+# Calculate effective sigma using the initial slope
+effective_sigma = calculate_effective_sigma(zero_crossing_errors_list, frequency_errors_list, slope_initial)
+
+# Perform the final fit using the effective sigma
+popt, pcov = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=effective_sigma)
 
 # Calculate the errors (square root of diagonal elements of covariance matrix)
 perr = np.sqrt(np.diag(pcov))
 
 # Plotting
-plt.errorbar(frequency_values, zero_crossing_voltages_list, yerr=zero_crossing_errors_list, fmt='o', label='Zero Crossing Voltage (Cubic Spline)')
-plt.plot(frequency_values, linear(np.array(frequency_values), *popt), label='Linear Fit')
+plt.errorbar(frequency_values, zero_crossing_voltages_list, yerr=zero_crossing_errors_list, xerr=frequency_errors_list, fmt='o', label='Zero Crossing Voltage (Cubic Spline)')
+plt.plot(frequency_values, linear(np.array(frequency_values), *popt), label=f'Linear Fit (slope: {popt[0]:.4e} ± {perr[0]:.4e})')
 plt.xlabel('Frequency (Hz)')
 plt.ylabel('Zero Crossing Voltage (V)')
+plt.title('Zero Crossing Voltage vs. Frequency')
 plt.legend()
 plt.show()
 
@@ -129,9 +151,12 @@ plt.show()
 gradient = popt[0]
 print(f"Gradient of the linear fit: {gradient} V/Hz")
 
-
-
 # Calculate Planck's constant using the gradient
 h = gradient * 1.6e-19
-print(f"Planck's constant: {h} J.s")
-print(f"Error in Planck's constant: {perr[0] * 1.6e-19} J.s")
+h_error = perr[0] * 1.6e-19
+print(f"Planck's constant: {h:.4e} J.s")
+print(f"Error in Planck's constant: {h_error:.4e} J.s")
+
+# Calculate the work function using the y-intercept
+work_function = popt[1]
+print(f"Work function: {work_function:.4f} V")

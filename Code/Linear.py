@@ -31,8 +31,18 @@ wavelength = {
     'uv': 368.11e-9
 }
 
+wavelength_error = {
+    'r': 10.547e-9,
+    'g': 9.816e-9,
+    'b': 8.599e-9,
+    'y': 8.9021e-9,
+    'v': 9.064e-9,
+    'uv': 10.101e-9
+}
+
 c = 3e8  
 frequency = {color: c / wave for color, wave in wavelength.items()}
+frequency_error = {color: c / wave**2 * wave_error for color, wave, wave_error in zip(wavelength.keys(), wavelength.values(), wavelength_error.values())}
 
 # Function to find intersection of two lines
 def find_intersection(line1, line2):
@@ -133,16 +143,29 @@ def linear(x, a, b):
 # Convert to lists for fitting
 frequency_values = list(frequency.values())
 zero_crossing_voltages_list = list(zero_crossing_voltages.values())
+frequency_errors_list = list(frequency_error.values())
+zero_crossing_errors_list = list(zero_crossing_errors.values())
 
-# Fit the linear function and get covariance matrix
-popt, pcov = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=list(zero_crossing_errors.values()))
+# Calculate the effective sigma
+def calculate_effective_sigma(voltage_errors, frequency_errors, slope):
+    return np.sqrt(np.array(voltage_errors)**2 + (slope * np.array(frequency_errors))**2)
+
+# Perform an initial fit to get the slope
+popt_initial, _ = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=zero_crossing_errors_list)
+slope_initial = popt_initial[0]
+
+# Calculate the effective sigma based on the initial slope estimate
+effective_sigma = calculate_effective_sigma(zero_crossing_errors_list, frequency_errors_list, slope_initial)
+
+# Perform the final fit using the effective sigma
+popt, pcov = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=effective_sigma)
 
 # Calculate errors in fit parameters
 perr = np.sqrt(np.diag(pcov))
 
 # Plot the linear fit with error bars
-plt.errorbar(frequency_values, zero_crossing_voltages_list, yerr=list(zero_crossing_errors.values()), fmt='o', label='Zero Crossing Voltage')
-plt.plot(frequency_values, linear(np.array(frequency_values), *popt), label=f'Linear Fit ($\pm$ {perr[0]:.4f})')
+plt.errorbar(frequency_values, zero_crossing_voltages_list, yerr=zero_crossing_errors_list, xerr=frequency_errors_list, fmt='o', label='Zero Crossing Voltage')
+plt.plot(frequency_values, linear(np.array(frequency_values), *popt), label=f'Linear Fit (slope: {popt[0]:.4e} ± {perr[0]:.4e})')
 plt.xlabel('Frequency (Hz)')
 plt.ylabel('Zero Crossing Voltage (V)')
 plt.legend()

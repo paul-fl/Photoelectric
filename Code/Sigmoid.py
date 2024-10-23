@@ -11,6 +11,10 @@ cleaned_data = {}
 for i in ['r', 'g', 'b', 'y', 'v', 'uv']:  
     cleaned_data[i] = data.dropna(subset=[f'current_{i} pA', f'unc_{i} pA'])
 
+# Define the linear function
+def linear(x, a, b):
+    return a * x + b
+
 # Define the sigmoid function
 def sigmoid(x, a, b, c, d):
     return a / (1 + np.exp(-b * (x - c))) + d
@@ -61,60 +65,75 @@ for color, data_cleaned in cleaned_data.items():
     plt.plot(data_cleaned['voltage V'], sigmoid(data_cleaned['voltage V'], *popt), label=f'Sigmoid Fit ({color.upper()})', color='red')
     plt.xlabel('Voltage (V)')
     plt.ylabel('Current (pA)')
+    plt.title(f'Voltage Against Current for {color.upper()} Filter')
     plt.legend()
     plt.show()
 
-# Plot the zero crossing voltages against the frequency of each color
+# Define wavelength and wavelength errors
 wavelength = {
     'r': 691.797e-9,
-    'g': 528.273e-9,
+    'g': 548.273e-9,
     'b': 438.157e-9,
     'y': 577.302e-9,
     'v': 405.21e-9,
     'uv': 368.11e-9
 }
 
+wavelength_error = {
+    'r': 10.547e-9,
+    'g': 9.816e-9,
+    'b': 8.599e-9,
+    'y': 8.9021e-9,
+    'v': 9.064e-9,
+    'uv': 10.101e-9
+}
+
 c = 3e8  
 frequency = {}
+frequency_error = {}
+
+# Calculate frequency and its error for each color
 for color, wave in wavelength.items():
     frequency[color] = c / wave
-
-# Take absolute value of zero crossing voltages
-for color, voltage in zero_crossing_voltages.items():
-    zero_crossing_voltages[color] = abs(voltage)
+    frequency_error[color] = (c / wave**2) * wavelength_error[color]
 
 # Convert the frequency and zero crossing voltages to lists
 frequency_values = list(frequency.values())
 zero_crossing_voltages_list = list(zero_crossing_voltages.values())
 zero_crossing_errors_list = list(zero_crossing_errors.values())
+frequency_errors_list = list(frequency_error.values())
 
-# Plot zero crossing voltages with error bars
-plt.errorbar(frequency_values, zero_crossing_voltages_list, 
-             yerr=zero_crossing_errors_list, fmt='o', label='Zero Crossing Voltage')
-plt.xlabel('Frequency (Hz)')
-plt.ylabel('Zero Crossing Voltage (V)')
-plt.legend()
-plt.show()
+# Take the absolute value of the zero crossing voltages
+zero_crossing_voltages_list = np.abs(zero_crossing_voltages_list)
 
-# Fit a linear function to the zero crossing voltage
 
-# Define the linear function
-def linear(x, a, b):
-    return a * x + b
+# Calculate effective sigma for the fit
+# Combine the error in voltage and the frequency using effective sigma
+def calculate_effective_sigma(voltage_errors, frequency_errors, slope):
+    return np.sqrt(np.array(voltage_errors)**2 + (slope * np.array(frequency_errors))**2)
 
-# Perform the linear fit using the error in the zero crossing voltages as weights
-popt, pcov = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=zero_crossing_errors_list)
+# Perform initial fit to estimate the slope
+popt_initial, _ = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=zero_crossing_errors_list)
+slope_initial = popt_initial[0]
+
+# Calculate the effective sigma based on the initial slope estimate
+effective_sigma = calculate_effective_sigma(zero_crossing_errors_list, frequency_errors_list, slope_initial)
+
+# Perform the final fit using the effective sigma
+popt, pcov = curve_fit(linear, frequency_values, zero_crossing_voltages_list, sigma=effective_sigma)
 
 # Get the fit parameters and their errors
 slope, intercept = popt
 slope_error, intercept_error = np.sqrt(np.diag(pcov))
 
-# Plot the linear fit with error bars
+# Plot the zero crossing voltages with error bars and the best-fit line
 plt.errorbar(frequency_values, zero_crossing_voltages_list, 
-             yerr=zero_crossing_errors_list, fmt='o', label='Zero Crossing Voltage')
-plt.plot(frequency_values, linear(np.array(frequency_values), *popt), label=f'Linear Fit (slope: {slope:.4e} ± {slope_error:.4e})')
+             yerr=zero_crossing_errors_list, xerr=frequency_errors_list, fmt='o', label='Data')
+plt.plot(frequency_values, linear(np.array(frequency_values), slope, intercept), 
+         label=f'Linear Fit (slope: {slope:.4e} ± {slope_error:.4e})')
 plt.xlabel('Frequency (Hz)')
 plt.ylabel('Zero Crossing Voltage (V)')
+plt.title('Zero Crossing Voltage Against Frequency')
 plt.legend()
 plt.show()
 
@@ -125,3 +144,5 @@ h = slope * elementary_charge
 h_error = slope_error * elementary_charge
 
 print(f"The value of Planck's constant is: {h:.4e} ± {h_error:.4e} J·s")
+
+
